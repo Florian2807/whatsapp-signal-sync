@@ -1,0 +1,9 @@
+node_modules/
+.wwebjs_cache/
+data/
+package-lock.json
+.env
+group-mappings.json
+sessions/
+signal-data/
+signal_qr.png
