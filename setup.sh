@@ -89,7 +89,6 @@ show_service_instructions() {
     echo "4. Restart the service after editing mappings: npm start"
     echo
     echo "🔧 Service Management:"
-    echo "   • Stop service:     pkill -f 'node src/index.js' or Ctrl+C in terminal"
     echo "   • Restart service:  npm start"
     echo "   • Check status:     curl http://localhost:${BRIDGE_PORT}/health"
     echo "   • View logs:        npm start (runs in foreground)"
@@ -132,6 +131,67 @@ check_requirements() {
         exit 1
     fi
     
+    # Check Docker permissions
+    log_info "Checking Docker permissions..."
+    if ! docker info &> /dev/null; then
+        log_warning "Docker requires sudo permissions or you're not in the docker group."
+        echo
+        echo "🔐 Docker Permission Options:"
+        echo "1) Run with sudo (recommended for one-time setup)"
+        echo "2) Add user to docker group (requires logout/login)"
+        echo "3) Continue anyway (may fail)"
+        echo
+        
+        while true; do
+            read -p "Choose option (1-3): " docker_choice
+            case $docker_choice in
+                1)
+                    log_info "Will use sudo for Docker commands..."
+                    export USE_SUDO="sudo"
+                    
+                    # Test sudo docker access
+                    if ! sudo docker info &> /dev/null; then
+                        log_error "sudo docker access failed. Please check your sudo permissions."
+                        exit 1
+                    fi
+                    log_success "sudo Docker access confirmed"
+                    break
+                    ;;
+                2)
+                    log_info "To add your user to the docker group, run:"
+                    echo "  sudo usermod -aG docker \$USER"
+                    echo "  newgrp docker"
+                    echo "  # or logout and login again"
+                    echo
+                    read -p "Have you already done this? (y/n): " added_to_group
+                    if [[ $added_to_group =~ ^[Yy]$ ]]; then
+                        if docker info &> /dev/null; then
+                            log_success "Docker access without sudo confirmed"
+                            export USE_SUDO=""
+                            break
+                        else
+                            log_error "Docker access still requires sudo. Please logout/login or use option 1."
+                        fi
+                    else
+                        log_info "Please add yourself to docker group first, then re-run this script."
+                        exit 1
+                    fi
+                    ;;
+                3)
+                    log_warning "Continuing without Docker permission check..."
+                    export USE_SUDO=""
+                    break
+                    ;;
+                *)
+                    echo "❌ Invalid selection. Please choose 1, 2, or 3."
+                    ;;
+            esac
+        done
+    else
+        log_success "Docker access confirmed"
+        export USE_SUDO=""
+    fi
+    
     log_success "All prerequisites met"
 }
 
@@ -146,12 +206,28 @@ setup_env() {
         # Ask for Signal number
         read -p "🔢 Please enter your Signal phone number (with country code, e.g. +491234567890): " signal_number
         
-        # Update .env file
-        sed -i '' "s/SIGNAL_NUMBER=.*/SIGNAL_NUMBER=${signal_number}/" .env
+        # Ask for Bridge port
+        echo
+        read -p "🌐 Enter the port for the bridge service (default: 3000): " bridge_port
+        bridge_port=${bridge_port:-3000}
         
-        log_success "Signal number configured in .env"
+        # Ask for Signal API port
+        read -p "📡 Enter the port for the Signal API (default: 8080): " signal_api_port
+        signal_api_port=${signal_api_port:-8080}
+        
+        # Update .env file
+        sed -i "s/SIGNAL_NUMBER=.*/SIGNAL_NUMBER=${signal_number}/" .env
+        sed -i "s/PORT=.*/PORT=${bridge_port}/" .env
+        sed -i "s|SIGNAL_API_URL=.*|SIGNAL_API_URL=http://localhost:${signal_api_port}|" .env
+        
+        # Update global variables for later use
+        BRIDGE_PORT=$bridge_port
+        SIGNAL_API_PORT=$signal_api_port
+        
+        log_success "Environment configured - Signal number: ${signal_number}, Bridge port: ${bridge_port}, Signal API port: ${signal_api_port}"
     else
-        log_warning ".env file already exists, skipping..."
+        log_warning ".env file already exists, skipping environment setup..."
+        log_info "Reading existing configuration from .env file"
     fi
 }
 
@@ -188,7 +264,7 @@ install_dependencies() {
 # Start Docker services
 start_docker_services() {
     log_info "Starting Docker services..."
-    docker compose up -d
+    ${USE_SUDO} docker compose up -d
     log_success "Docker services started"
     
     # Wait until Signal API is ready
@@ -405,7 +481,7 @@ register_signal() {
 cleanup() {
     echo
     log_info "Setup interrupted. Cleaning up..."
-    docker compose down 2>/dev/null || true
+    ${USE_SUDO} docker compose down 2>/dev/null || true
     exit 1
 }
 

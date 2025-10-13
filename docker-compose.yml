@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   signal-api:
     image: bbernhard/signal-cli-rest-api:latest
