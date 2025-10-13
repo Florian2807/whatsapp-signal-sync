@@ -16,12 +16,13 @@ This tool provides an automated setup script that handles the entire installatio
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/your-username/whatsapp-signal-sync.git
+git clone https://github.com/Florian2807/whatsapp-signal-sync.git
 cd whatsapp-signal-sync
 ```
 
 2. **Run the automated setup:**
 ```bash
+chmod +x ./setup.sh
 ./setup.sh
 ```
 
@@ -68,7 +69,7 @@ Example configuration:
   "mappings": [
     {
       "whatsapp": "123456789@g.us",
-      "signal": "base64-encoded-signal-group-id"
+      "signal": "group-id"
     }
   ]
 }

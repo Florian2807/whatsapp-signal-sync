@@ -115,7 +115,7 @@ check_requirements() {
     fi
     
     # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
         log_error "Docker Compose is not installed. Please install Docker Compose and try again."
         exit 1
     fi
@@ -147,7 +147,7 @@ setup_env() {
         read -p "🔢 Please enter your Signal phone number (with country code, e.g. +491234567890): " signal_number
         
         # Update .env file
-        sed -i "s/SIGNAL_NUMBER=.*/SIGNAL_NUMBER=${signal_number}/" .env
+        sed -i '' "s/SIGNAL_NUMBER=.*/SIGNAL_NUMBER=${signal_number}/" .env
         
         log_success "Signal number configured in .env"
     else
@@ -188,7 +188,7 @@ install_dependencies() {
 # Start Docker services
 start_docker_services() {
     log_info "Starting Docker services..."
-    docker-compose up -d
+    docker compose up -d
     log_success "Docker services started"
     
     # Wait until Signal API is ready
@@ -405,7 +405,7 @@ register_signal() {
 cleanup() {
     echo
     log_info "Setup interrupted. Cleaning up..."
-    docker-compose down 2>/dev/null || true
+    docker compose down 2>/dev/null || true
     exit 1
 }
 
