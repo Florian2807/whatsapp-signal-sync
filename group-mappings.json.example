@@ -4,11 +4,6 @@
       "signalGroupId": "group.signal1",
       "name": "Beispiel Gruppe 1",
       "description": "WhatsApp Gruppe 1 -> Signal Gruppe 1"
-    },
-    "123456789@g.us": {
-      "signalGroupId": "group.signal2",
-      "name": "Beispiel Gruppe 2",
-      "description": "WhatsApp Gruppe 2 -> Signal Gruppe 2"
     }
   },
   "settings": {
