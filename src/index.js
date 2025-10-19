@@ -41,7 +41,6 @@ async function main() {
         'POST /groups/mappings - Add group mapping',
         'POST /send/whatsapp/group - Send to WhatsApp group',
         'POST /send/signal/group - Send to Signal group',
-        'POST /signal/webhook - Signal webhook'
       ]
     });
   });
