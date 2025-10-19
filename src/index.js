@@ -16,13 +16,13 @@ async function main() {
   app.use(express.json({ limit: '10mb' }));
 
   console.log(`🚀 Starting WhatsApp-Signal GROUP Bridge...`);
-  console.log(`📱 WhatsApp Client: Real`);
+  console.log(`📱 WhatsApp Client`);
   console.log(`📁 Session Directory: ${SESSION_DIR}`);
 
   const wa = await createWhatsAppClient({ sessionDir: SESSION_DIR });
-  const signal = createSignalClient({ 
-    baseUrl: process.env.SIGNAL_API_URL, 
-    number: process.env.SIGNAL_NUMBER 
+  const signal = createSignalClient({
+    baseUrl: process.env.SIGNAL_API_URL,
+    number: process.env.SIGNAL_NUMBER
   });
 
   // Setup bridge endpoints and logic
@@ -36,7 +36,7 @@ async function main() {
       endpoints: [
         'GET /health - Service health',
         'GET /groups/whatsapp - List WhatsApp groups',
-        'GET /groups/signal - List Signal groups', 
+        'GET /groups/signal - List Signal groups',
         'GET /groups/mappings - Show group mappings',
         'POST /groups/mappings - Add group mapping',
         'POST /send/whatsapp/group - Send to WhatsApp group',
@@ -56,7 +56,7 @@ async function main() {
   });
 }
 
-main().catch(err => { 
-  console.error('❌ Error starting application:', err); 
-  process.exit(1); 
+main().catch(err => {
+  console.error('❌ Error starting application:', err);
+  process.exit(1);
 });
