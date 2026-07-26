@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sign in | WhatsApp Signal Sync</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="auth-shell">
+        <div class="auth-card">
+          <div class="auth-copy">
+            <h1>WhatsApp Signal Sync</h1>
+            <p>Sign in to access provider state, private groups, mappings, and activity.</p>
+          </div>
+          <form id="login-form" class="stack">
+            <label class="field">
+              <span>Username</span>
+              <input id="login-username" name="username" type="text" autocomplete="username" required autofocus>
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button id="login-button" type="submit" class="button button-primary">Sign in</button>
+            <p id="login-error" class="form-note form-note-error" role="alert" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+    <script src="/login.js" defer></script>
+  </body>
+</html>

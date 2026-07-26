@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhatsApp Signal Sync</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <section id="startup-view" class="startup-view" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">
+        <div class="panel startup-panel">
+          <h1>WhatsApp Signal Sync</h1>
+          <p id="startup-message">Loading dashboard...</p>
+          <button id="startup-retry-button" class="button hidden" type="button">Retry loading dashboard</button>
+        </div>
+      </section>
+
+      <section id="dashboard-view" class="dashboard hidden">
+        <header class="topbar">
+          <div class="title-block">
+            <h1>WhatsApp Signal Sync</h1>
+            <p>Clean bridge control for paired providers and group mappings.</p>
+          </div>
+
+          <div class="topbar-side">
+            <div class="provider-summary-list">
+              <div class="provider-summary">
+                <span class="provider-summary-label">WhatsApp</span>
+                <span id="whatsapp-summary-pill" class="pill">starting</span>
+              </div>
+              <div class="provider-summary">
+                <span class="provider-summary-label">Signal</span>
+                <span id="signal-summary-pill" class="pill">starting</span>
+              </div>
+            </div>
+
+            <div class="topbar-actions">
+              <button id="refresh-button" class="button">Refresh</button>
+              <button id="logout-button" class="button button-subtle">Sign out</button>
+            </div>
+          </div>
+        </header>
+
+        <div id="global-message" class="banner hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+        <section class="connections-grid">
+          <article class="panel connection-panel">
+            <div class="panel-header">
+              <div>
+                <h2>WhatsApp</h2>
+                <p class="panel-subtitle">Linked browser session and incoming bridge events.</p>
+              </div>
+              <span id="whatsapp-status-pill" class="pill">starting</span>
+            </div>
+            <p id="whatsapp-status-text" class="status-text">Waiting for status...</p>
+            <div id="whatsapp-qr-wrap" class="qr-block hidden">
+              <img id="whatsapp-qr" class="qr-image" alt="WhatsApp QR code">
+            </div>
+            <div class="connection-actions">
+              <button id="whatsapp-logout-button" class="button button-danger" type="button" disabled>Log out WhatsApp</button>
+            </div>
+          </article>
+
+          <article class="panel connection-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Signal</h2>
+                <p class="panel-subtitle">Linked device state, receive mode, and pairing status.</p>
+              </div>
+              <span id="signal-status-pill" class="pill">starting</span>
+            </div>
+            <p id="signal-status-text" class="status-text">Waiting for status...</p>
+            <div id="signal-qr-wrap" class="qr-block hidden">
+              <img id="signal-qr" class="qr-image" alt="Signal QR code">
+            </div>
+            <div class="connection-actions">
+              <button id="signal-refresh-button" class="button">Refresh QR</button>
+              <button id="signal-logout-button" class="button button-danger" type="button" disabled>Log out Signal</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="workspace-grid">
+          <aside class="panel workspace-panel mappings-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Mappings</h2>
+                <p class="panel-subtitle">Existing sync pairs and their direction settings.</p>
+              </div>
+            </div>
+            <div id="mappings-list" class="mapping-list" aria-live="polite"></div>
+          </aside>
+
+          <section class="panel workspace-panel editor-panel">
+            <div class="panel-header editor-header">
+              <div>
+                <h2 id="editor-title">New mapping</h2>
+                <p id="editor-subtitle" class="panel-subtitle">Connect one WhatsApp group with one Signal group.</p>
+              </div>
+              <span id="editor-state" class="editor-state">Draft</span>
+            </div>
+
+            <form id="mapping-form" class="editor-form stack">
+              <input id="mapping-id" type="hidden">
+
+              <label class="field">
+                <span>Name</span>
+                <input id="mapping-name" type="text" required placeholder="Generated from selected groups">
+                <small>Generated automatically until you enter a custom name.</small>
+              </label>
+
+              <div class="field-grid">
+                <label class="field">
+                  <span>WhatsApp group</span>
+                  <select id="whatsapp-group" required></select>
+                </label>
+                <label class="field">
+                  <span>Signal group</span>
+                  <select id="signal-group" required></select>
+                </label>
+              </div>
+
+              <fieldset class="control-group">
+                <legend>Message direction</legend>
+                <div id="direction-control" class="segmented-control">
+                  <button type="button" class="segment is-selected" data-direction="both" aria-pressed="true">Both ways</button>
+                  <button type="button" class="segment" data-direction="wa-to-signal" aria-pressed="false">WA → Signal</button>
+                  <button type="button" class="segment" data-direction="signal-to-wa" aria-pressed="false">Signal → WA</button>
+                </div>
+              </fieldset>
+
+              <div class="option-grid">
+                <button id="toggle-media" class="option-card is-on" type="button" role="switch" aria-checked="true">
+                  <span><strong>Attachments</strong><small>Forward images and files</small></span>
+                  <span class="switch-track" aria-hidden="true"><span></span></span>
+                </button>
+                <button id="toggle-sender" class="option-card is-on" type="button" role="switch" aria-checked="true">
+                  <span><strong>Sender labels</strong><small>Show who sent a message</small></span>
+                  <span class="switch-track" aria-hidden="true"><span></span></span>
+                </button>
+                <button id="toggle-active" class="option-card is-on" type="button" role="switch" aria-checked="true">
+                  <span><strong>Bridge active</strong><small>Start syncing immediately</small></span>
+                  <span class="switch-track" aria-hidden="true"><span></span></span>
+                </button>
+              </div>
+
+              <div class="mapping-preview" aria-live="polite">
+                <span class="preview-label">Preview</span>
+                <div class="preview-route">
+                  <strong id="preview-whatsapp">Choose WhatsApp group</strong>
+                  <span id="preview-direction" class="preview-arrow">↔</span>
+                  <strong id="preview-signal">Choose Signal group</strong>
+                </div>
+                <p id="preview-options">Attachments · Sender labels · Active</p>
+              </div>
+
+              <div class="editor-actions">
+                <button id="mapping-submit-button" type="submit" class="button button-primary">Create mapping</button>
+                <button id="mapping-reset-button" type="button" class="button button-subtle">Clear</button>
+              </div>
+
+              <p id="mapping-error" class="form-note form-note-error" role="alert" aria-live="assertive"></p>
+            </form>
+          </section>
+        </section>
+
+        <section class="details-stack">
+          <section class="panel detail-panel">
+            <div class="panel-header panel-header-interactive">
+              <div>
+                <h2>Groups</h2>
+                <p class="panel-subtitle">Available group targets from both providers.</p>
+              </div>
+              <button id="groups-toggle" type="button" class="button button-subtle" aria-controls="groups-panel" aria-expanded="false">Show groups</button>
+            </div>
+
+            <div id="groups-panel" class="detail-content hidden">
+              <div class="group-grid">
+                <section>
+                  <h3>WhatsApp</h3>
+                  <div id="whatsapp-groups-list" class="group-list"></div>
+                </section>
+                <section>
+                  <h3>Signal</h3>
+                  <div id="signal-groups-list" class="group-list"></div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel detail-panel">
+            <div class="panel-header panel-header-interactive">
+              <div>
+                <h2>Activity</h2>
+                <p class="panel-subtitle">Recent bridge and provider events.</p>
+              </div>
+              <button id="activity-toggle" type="button" class="button button-subtle" aria-controls="activity-panel" aria-expanded="false">Show activity</button>
+            </div>
+
+            <div id="activity-panel" class="detail-content hidden">
+              <div id="activity-list" class="activity-list"></div>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

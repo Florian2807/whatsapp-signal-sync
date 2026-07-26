@@ -1,0 +1,70 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?ADMIN_USERNAME must be set}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
+      COOKIE_SECURE: ${COOKIE_SECURE:?COOKIE_SECURE must be set}
+      TRUST_PROXY: ${TRUST_PROXY:?TRUST_PROXY must be set}
+      SIGNAL_NUMBER: ${SIGNAL_NUMBER:?SIGNAL_NUMBER must be set}
+      SIGNAL_DEVICE_NAME: ${SIGNAL_DEVICE_NAME:?SIGNAL_DEVICE_NAME must be set}
+      SIGNAL_QR_REFRESH_MS: ${SIGNAL_QR_REFRESH_MS:?SIGNAL_QR_REFRESH_MS must be set}
+      SIGNAL_STATUS_POLL_MS: ${SIGNAL_STATUS_POLL_MS:?SIGNAL_STATUS_POLL_MS must be set}
+      BRIDGE_RETRY_MAX_ATTEMPTS: ${BRIDGE_RETRY_MAX_ATTEMPTS:-10}
+      BRIDGE_PENDING_MAX_AGE_MS: ${BRIDGE_PENDING_MAX_AGE_MS:-86400000}
+      BRIDGE_QUEUE_MAX_BYTES: ${BRIDGE_QUEUE_MAX_BYTES:-268435456}
+      BRIDGE_DEAD_LETTER_MAX_AGE_MS: ${BRIDGE_DEAD_LETTER_MAX_AGE_MS:-604800000}
+    depends_on:
+      signal-api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${HOST_PORT:?HOST_PORT must be set}:3000"
+    cap_drop:
+      - ALL
+    # The non-root Node process has no effective capabilities. These two remain
+    # in the bounding set solely for Chromium's setuid namespace sandbox helper.
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    volumes:
+      - ./data/app:/app/data
+      - ./data/whatsapp:/app/sessions
+
+  signal-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      MODE: "normal"
+      JSON_RPC_IGNORE_ATTACHMENTS: "false"
+      LOG_LEVEL: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/v1/about"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - ./data/signal:/home/.local/share/signal-cli
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
