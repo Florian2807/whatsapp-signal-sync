@@ -128,6 +128,7 @@ async function main() {
     baseUrl: config.signal.baseUrl,
     number: config.signal.number,
     deviceName: config.signal.deviceName,
+    sendTimeoutMs: config.signal.sendTimeoutMs,
     pollIntervalMs: config.app.pollIntervalMs,
     qrRefreshMs: config.app.signalQrRefreshMs
   });

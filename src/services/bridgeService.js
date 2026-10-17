@@ -6,6 +6,29 @@ function formatForwardedText(providerLabel, senderName, text, prependSender) {
   return cleanText ? `${prefix}\n${cleanText}` : prefix;
 }
 
+function nestedErrors(error) {
+  if (error instanceof AggregateError) return error.errors.flatMap(nestedErrors);
+  return [error];
+}
+
+function queueFailureDisposition(error) {
+  const errors = nestedErrors(error);
+  const terminal = errors.find((item) => item?.retryable === false);
+  if (!terminal) return { retryable: true, reason: null, error: error.message || String(error) };
+  return {
+    retryable: false,
+    reason: terminal.deliveryUncertain ? 'delivery_status_unknown' : 'non_retryable_error',
+    error: terminal.message || String(terminal)
+  };
+}
+
+function partialDeliveryErrors(response) {
+  if (!response || response.errors == null) return null;
+  if (Array.isArray(response.errors) && response.errors.length === 0) return null;
+  if (!Array.isArray(response.errors) && typeof response.errors === 'object' && Object.keys(response.errors).length === 0) return null;
+  return response.errors;
+}
+
 class BridgeService {
   constructor({ database, whatsappService, signalService, queuePolicy = {} }) {
     this.database = database;
@@ -90,12 +113,20 @@ class BridgeService {
         }
         this.database.deletePendingMessage(pending.event.fingerprint);
       } catch (error) {
-        const result = this.database.recordPendingFailure(
-          pending.event.fingerprint,
-          pending.attempts,
-          error.message || error,
-          this.queuePolicy.maxAttempts
-        );
+        const disposition = queueFailureDisposition(error);
+        const result = disposition.retryable
+          ? this.database.recordPendingFailure(
+            pending.event.fingerprint,
+            pending.attempts,
+            disposition.error,
+            this.queuePolicy.maxAttempts
+          )
+          : this.database.deadLetterPending(
+            pending.event.fingerprint,
+            pending.attempts + 1,
+            disposition.error,
+            disposition.reason
+          );
         if (result.status === 'dead_letter') this.logDeadLetter(result);
       }
     }
@@ -152,6 +183,8 @@ class BridgeService {
       } else {
         response = await this.signalService.sendGroupText(mapping.signalGroupId, caption, quote);
       }
+
+      this.logSignalPartialDelivery(event, mapping, part, response);
 
       if (response?.timestamp && !this.database.getReplyLink(mapping.id, event.messageId)) {
         this.database.saveReplyLink({
@@ -262,8 +295,25 @@ class BridgeService {
     this.log('error', 'bridge.forward_failed', provider, event.chatId, null, `Forwarding failed for mapping "${mapping.name}"`, {
       mappingId: mapping.id,
       fingerprint: event.fingerprint,
-      error: error.message || String(error)
+      error: error.message || String(error),
+      status: error.status || null,
+      response: error.responseData || null,
+      retryable: error.retryable !== false,
+      deliveryUncertain: Boolean(error.deliveryUncertain)
     });
+  }
+
+  logSignalPartialDelivery(event, mapping, part, response) {
+    const errors = partialDeliveryErrors(response);
+    if (!errors) return;
+    this.log('warning', 'bridge.partial_delivery', event.provider, event.chatId, mapping.signalGroupId,
+      `Signal reported partial delivery via mapping "${mapping.name}"`, {
+        mappingId: mapping.id,
+        fingerprint: event.fingerprint,
+        partKey: part.key,
+        timestamp: response.timestamp || null,
+        errors
+      });
   }
 
   logUnexpectedFailure(provider, event, error) {

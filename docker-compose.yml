@@ -14,6 +14,7 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:?TRUST_PROXY must be set}
       SIGNAL_NUMBER: ${SIGNAL_NUMBER:?SIGNAL_NUMBER must be set}
       SIGNAL_DEVICE_NAME: ${SIGNAL_DEVICE_NAME:?SIGNAL_DEVICE_NAME must be set}
+      SIGNAL_SEND_TIMEOUT_MS: ${SIGNAL_SEND_TIMEOUT_MS:-120000}
       SIGNAL_QR_REFRESH_MS: ${SIGNAL_QR_REFRESH_MS:?SIGNAL_QR_REFRESH_MS must be set}
       SIGNAL_STATUS_POLL_MS: ${SIGNAL_STATUS_POLL_MS:?SIGNAL_STATUS_POLL_MS must be set}
       BRIDGE_RETRY_MAX_ATTEMPTS: ${BRIDGE_RETRY_MAX_ATTEMPTS:-10}
@@ -49,7 +50,7 @@ services:
       - ./data/whatsapp:/app/sessions
 
   signal-api:
-    image: bbernhard/signal-cli-rest-api:latest
+    image: bbernhard/signal-cli-rest-api:0.101
     restart: unless-stopped
     init: true
     environment:

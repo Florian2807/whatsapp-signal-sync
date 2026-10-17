@@ -180,3 +180,60 @@ test('stops retrying after the configured attempt limit', async () => {
     await bridge.stop();
   });
 });
+
+test('dead-letters an ambiguous Signal send without retrying it', async () => {
+  await fixture(async ({ database, signal }) => {
+    createMapping(database, 'ambiguous');
+    let sends = 0;
+    signal.sendGroupText = async () => {
+      sends += 1;
+      const error = new Error('Signal send failed with HTTP 400: partial failure');
+      error.status = 400;
+      error.responseData = '{"error":"partial failure"}';
+      error.retryable = false;
+      error.deliveryUncertain = true;
+      throw error;
+    };
+    const bridge = new BridgeService({
+      database,
+      whatsappService: { markChatRead: async () => {} },
+      signalService: signal
+    });
+
+    await bridge.start();
+    bridge.enqueue(whatsappEvent({ fingerprint: 'ambiguous-message', messageId: 'ambiguous-message' }));
+    await bridge.drain();
+
+    assert.equal(sends, 1);
+    assert.equal(database.countPendingMessages(), 0);
+    const [deadLetter] = database.listDeadLetters();
+    assert.equal(deadLetter.reason, 'delivery_status_unknown');
+    assert.equal(deadLetter.attempts, 1);
+    const failure = database.listActivity(20).find((entry) => entry.eventType === 'bridge.forward_failed');
+    assert.equal(failure.details.status, 400);
+    assert.equal(failure.details.response, '{"error":"partial failure"}');
+    await bridge.stop();
+  });
+});
+
+test('records Signal partial-delivery details but does not resend', async () => {
+  await fixture(async ({ database, signal, bridge }) => {
+    const mapping = createMapping(database, 'partial');
+    signal.sendGroupText = async () => {
+      signal.sent.push({ groupId: mapping.signalGroupId });
+      return {
+        timestamp: 1234,
+        errors: [{ recipient: 'member', type: 'UNREGISTERED_FAILURE' }]
+      };
+    };
+
+    await bridge.handleWhatsappMessage(whatsappEvent({ fingerprint: 'partial-message', messageId: 'partial-message' }));
+    await bridge.handleWhatsappMessage(whatsappEvent({ fingerprint: 'partial-message', messageId: 'partial-message' }));
+
+    assert.equal(signal.sent.length, 1);
+    assert.equal(database.isDeliveryComplete('partial-message', mapping.id, 'whatsapp_to_signal', 'text'), true);
+    const warning = database.listActivity(20).find((entry) => entry.eventType === 'bridge.partial_delivery');
+    assert.equal(warning.level, 'warning');
+    assert.equal(warning.details.errors[0].type, 'UNREGISTERED_FAILURE');
+  });
+});

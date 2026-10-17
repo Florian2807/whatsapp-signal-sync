@@ -56,6 +56,8 @@ The dashboard binds to host loopback only. For remote access, place it behind an
 
 The application refuses to start with missing configuration, a weak admin password, or an invalid session secret.
 
+Signal sends use `SIGNAL_SEND_TIMEOUT_MS` (default: 120 seconds). HTTP 4xx responses and send timeouts are not retried automatically because Signal group sends can partially succeed before reporting an error; affected messages are moved to the dead-letter list for manual review instead of risking duplicates.
+
 ## Persistent Data
 
 Docker Compose stores all runtime state under `data/`:

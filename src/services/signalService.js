@@ -16,8 +16,34 @@ function signalAttachmentToDataUrl(buffer, mimetype, filename) {
   return `data:${mimetype || 'application/octet-stream'}${safeFilename};base64,${buffer.toString('base64')}`;
 }
 
+function responseDetails(data) {
+  if (data == null) return null;
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  return text.slice(0, 4000);
+}
+
+function normalizeSendError(error, timeoutMs) {
+  const status = Number(error?.response?.status) || null;
+  const timedOut = error?.code === 'ECONNABORTED'
+    || error?.code === 'ETIMEDOUT'
+    || /timeout/i.test(error?.message || '');
+  const details = responseDetails(error?.response?.data);
+  let message = error?.message || 'Signal send failed';
+
+  if (status) message = `Signal send failed with HTTP ${status}${details ? `: ${details}` : ''}`;
+  else if (timedOut) message = `Signal send timed out after ${timeoutMs}ms; delivery status is unknown`;
+
+  const normalized = new Error(message, { cause: error });
+  normalized.name = 'SignalSendError';
+  normalized.status = status;
+  normalized.responseData = details;
+  normalized.deliveryUncertain = timedOut || (status != null && status >= 400 && status < 500);
+  normalized.retryable = !normalized.deliveryUncertain;
+  return normalized;
+}
+
 class SignalService extends EventEmitter {
-  constructor({ baseUrl, number, deviceName, pollIntervalMs, qrRefreshMs }) {
+  constructor({ baseUrl, number, deviceName, sendTimeoutMs = 120000, pollIntervalMs, qrRefreshMs }) {
     super();
     if (!baseUrl) {
       throw new Error('Signal API URL is required');
@@ -30,6 +56,7 @@ class SignalService extends EventEmitter {
     this.baseUrl = baseUrl;
     this.number = number;
     this.deviceName = deviceName;
+    this.sendTimeoutMs = sendTimeoutMs;
     this.pollIntervalMs = pollIntervalMs;
     this.qrRefreshMs = qrRefreshMs;
     this.api = axios.create({
@@ -401,8 +428,7 @@ class SignalService extends EventEmitter {
       text_mode: 'normal',
       notify_self: false
     };
-    const response = await this.enqueueRequest(() => this.api.post('/v2/send', this.addQuoteToPayload(payload, quote)));
-    return response.data;
+    return this.sendMessage(payload, quote);
   }
 
   async sendGroupAttachment(groupId, buffer, filename, mimetype, caption, quote) {
@@ -415,8 +441,20 @@ class SignalService extends EventEmitter {
       text_mode: 'normal',
       notify_self: false
     };
-    const response = await this.enqueueRequest(() => this.api.post('/v2/send', this.addQuoteToPayload(payload, quote)));
-    return response.data;
+    return this.sendMessage(payload, quote);
+  }
+
+  async sendMessage(payload, quote) {
+    try {
+      const response = await this.enqueueRequest(() => this.api.post(
+        '/v2/send',
+        this.addQuoteToPayload(payload, quote),
+        { timeout: this.sendTimeoutMs }
+      ));
+      return response.data;
+    } catch (error) {
+      throw normalizeSendError(error, this.sendTimeoutMs);
+    }
   }
 }
 

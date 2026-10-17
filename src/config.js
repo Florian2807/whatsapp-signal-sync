@@ -48,7 +48,8 @@ module.exports = {
   signal: {
     baseUrl: 'http://signal-api:8080',
     number: required('SIGNAL_NUMBER'),
-    deviceName: required('SIGNAL_DEVICE_NAME')
+    deviceName: required('SIGNAL_DEVICE_NAME'),
+    sendTimeoutMs: optionalPositiveInteger('SIGNAL_SEND_TIMEOUT_MS', 120000)
   },
   auth: {
     username: required('ADMIN_USERNAME'),

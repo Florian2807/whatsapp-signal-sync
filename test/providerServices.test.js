@@ -122,11 +122,68 @@ test('Signal sends disable notifications back to the bridge account', async () =
     qrRefreshMs: 1000
   });
   let payload;
-  service.api.post = async (path, body) => {
+  let requestOptions;
+  service.api.post = async (path, body, options) => {
     payload = body;
+    requestOptions = options;
     return { data: { timestamp: 1234 } };
   };
 
   await service.sendGroupText('group', 'message');
   assert.equal(payload.notify_self, false);
+  assert.equal(requestOptions.timeout, 120000);
+});
+
+test('Signal send errors retain the HTTP response and stop unsafe retries', async () => {
+  const service = new SignalService({
+    baseUrl: 'http://signal.test',
+    number: '+1000',
+    deviceName: 'test',
+    sendTimeoutMs: 90000,
+    pollIntervalMs: 1000,
+    qrRefreshMs: 1000
+  });
+  service.api.post = async () => {
+    const error = new Error('Request failed with status code 400');
+    error.response = { status: 400, data: { error: 'Failed to send some messages' } };
+    throw error;
+  };
+
+  await assert.rejects(
+    () => service.sendGroupText('group', 'message'),
+    (error) => {
+      assert.equal(error.name, 'SignalSendError');
+      assert.equal(error.status, 400);
+      assert.equal(error.retryable, false);
+      assert.equal(error.deliveryUncertain, true);
+      assert.match(error.message, /Failed to send some messages/);
+      return true;
+    }
+  );
+});
+
+test('Signal send timeouts are marked as delivery-unknown', async () => {
+  const service = new SignalService({
+    baseUrl: 'http://signal.test',
+    number: '+1000',
+    deviceName: 'test',
+    sendTimeoutMs: 75000,
+    pollIntervalMs: 1000,
+    qrRefreshMs: 1000
+  });
+  service.api.post = async () => {
+    const error = new Error('timeout exceeded');
+    error.code = 'ECONNABORTED';
+    throw error;
+  };
+
+  await assert.rejects(
+    () => service.sendGroupText('group', 'message'),
+    (error) => {
+      assert.equal(error.retryable, false);
+      assert.equal(error.deliveryUncertain, true);
+      assert.match(error.message, /75000ms/);
+      return true;
+    }
+  );
 });
